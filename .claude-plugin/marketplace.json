@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "marquezg-plugins",
+  "description": "Plugins propios para Claude Code",
+  "owner": {
+    "name": "MarquezG"
+  },
+  "plugins": [
+    {
+      "name": "delegacion-por-modelo",
+      "description": "Reparte el trabajo entre modelos con subagentes: Sonnet ejecuta, Opus planifica y revisa. Incluye un comando para prender y apagar el ruteo por sesion.",
+      "author": {
+        "name": "MarquezG"
+      },
+      "source": "./plugins/delegacion-por-modelo",
+      "category": "productivity"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "delegacion-por-modelo",
+  "description": "Reparte el trabajo entre modelos con subagentes: Sonnet ejecuta, Opus planifica y revisa. Incluye un comando para prender y apagar el ruteo por sesion.",
+  "author": {
+    "name": "MarquezG"
+  },
+  "version": "1.0.0"
+}
