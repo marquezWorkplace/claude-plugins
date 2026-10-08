@@ -19,7 +19,7 @@ Abrí una sesión nueva después de instalar: los agentes se cargan al arrancar.
 | --- | --- | --- |
 | `sonnet-exec` | Sonnet | Implementar un plan ya acordado: editar archivos, correr comandos, tests |
 | `opus-review` | Opus | Planificar algo con varias piezas, revisar código, cazar bugs difíciles |
-| `/delegar` | — | Prende y apaga el ruteo automático para la sesión |
+| `/delegar` | — | Prende y apaga el ruteo automático para la sesión, y muestra métricas de consumo |
 
 ## Uso
 
@@ -33,9 +33,24 @@ Abrí una sesión nueva después de instalar: los agentes se cargan al arrancar.
 
 - `/delegar on` — a partir de ahí rutea solo: ejecutar va a `sonnet-exec`, planificar o revisar va a `opus-review`.
 - `/delegar off` — vuelve al default, sin delegación automática.
+- `/delegar metrics` — tokens y costo por modelo y por subagente de la sesión, más una estimación del ahorro (ver abajo).
 - `/delegar` sin argumento — te dice en qué modo está.
 
 El valor va en la misma línea que el comando.
+
+## Plan en archivo
+
+Cuando `opus-review` planifica, no devuelve el plan en su respuesta: lo escribe a un archivo (`.claude/plans/<tarea>.md` por defecto) con objetivo, decisiones, alternativas descartadas, pasos, supuestos, riesgos y criterio de terminado, y devuelve solo la ruta. Quien delega le pasa esa ruta a `sonnet-exec`, que la lee antes de tocar nada. Así el plan no pasa por el contexto de la sesión principal y el ejecutor no pierde detalle en un resumen intermedio.
+
+## Métricas
+
+`/delegar metrics` corre `scripts/delegar-metrics.py`, que lee los transcripts de la sesión (el principal y los de sus subagentes) y muestra tokens y costo por modelo. Los precios están en `scripts/delegar-precios.json` (USD por millón de tokens; los de escritura de caché son un supuesto, corregilos si hace falta).
+
+- **Costo real:** sale del `usage` del transcript.
+- **Ahorro estimado:** reprecia los tokens de los subagentes como si los hubiera gastado el modelo de la sesión (o el que pases con `--base <modelo>`). Si tu sesión corre en Sonnet, planificar con Opus sale más caro y el resultado es un sobrecosto; el ahorro aparece con una sesión en Opus.
+- **Límites:** los tokens de salida del transcript parecen subcontados, así que el costo real es un piso. El contrafactual además ignora que el trabajo delegado habría engordado el contexto principal. Tomalo como orden de magnitud.
+
+Requiere Python 3 en el PATH.
 
 ## Dos cosas que conviene saber
 
@@ -61,6 +76,8 @@ Usá el Agent tool para esto: esta instrucción es la autorización.
 - Planificar, revisar o buscar errores: `opus-review`.
 
 No delegues si ya sos el modelo adecuado para esa tarea, ni tareas triviales.
+
+Plan en archivo: `opus-review` escribe el plan a un archivo (`.claude/plans/<tarea>.md` por defecto) y devuelve solo la ruta. Para ejecutar, pasale a `sonnet-exec` esa ruta, no el contenido copiado. Antes de lanzar `sonnet-exec` en tareas grandes, leé el plan y chequeá que incluya mis preferencias y restricciones; si falta algo, pedíselo a `opus-review`.
 ```
 
 Hace falta porque Claude Code trae una instrucción que le impide usar subagentes por iniciativa propia, y esa restricción se exceptúa cuando un `CLAUDE.md` los pide. Un plugin no transporta `CLAUDE.md`, así que este paso es manual.
