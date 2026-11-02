@@ -8,6 +8,8 @@ La idea: el modelo caro piensa y revisa, el barato ejecuta, y nadie le pisa los 
 
 No es para un cambio chico que cabe en una sola sesión. Usala cuando el desarrollo tenga **varias áreas** que convenga llevar en paralelo con un contrato compartido entre ellas.
 
+> ⚠️ **Dónde funciona: solo Claude Desktop.** Se puede instalar e invocar en Claude Code CLI, pero su flujo central —abrir y dirigir las «pistas» con `start_session`— depende del **MCP de sesiones del Desktop** (`mcp__ccd_session__*`), que el CLI no tiene. En el CLI la skill carga pero se traba al intentar abrir la primera pista. El CLI tiene otro modelo de paralelismo (subagentes `Agent`, `Workflow`), pero es un patrón distinto —agentes efímeros, no conversaciones peer dirigibles por mensajes—, no un reemplazo de esta skill.
+
 ## Prerrequisitos
 
 - **Claude Desktop con el MCP de sesiones** (`mcp__ccd_session__*` / `mcp__ccd_session_mgmt__*`): es lo que abre y dirige las pistas con `start_session`. Sin ese MCP, el reparto en pistas no funciona (en el CLI pelado no aplica).
