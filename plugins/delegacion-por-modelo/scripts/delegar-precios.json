@@ -1,7 +1,0 @@
-{
-  "_nota": "USD por millón de tokens. Precios de entrada, salida y lectura de caché según la referencia de la API (cache 2026-10-06). cache_write_5m y cache_write_1h NO figuran ahí: son supuestos (1.25x y 2x del precio de entrada); corregilos si la facturación real dice otra cosa.",
-  "claude-opus-5-5":   { "input": 4.00, "output": 20.00, "cache_read": 0.20, "cache_write_5m": 5.00, "cache_write_1h": 8.00 },
-  "claude-sonnet-5-5": { "input": 2.00, "output": 10.00, "cache_read": 0.20, "cache_write_5m": 2.50, "cache_write_1h": 4.00 },
-  "claude-haiku-5-5":  { "input": 0.10, "output": 0.50,  "cache_read": 0.01, "cache_write_5m": 0.125, "cache_write_1h": 0.20 },
-  "claude-fable-5-1":  { "input": 10.00, "output": 50.00, "cache_read": 0.25, "cache_write_5m": 12.50, "cache_write_1h": 20.00 }
-}

@@ -15,6 +15,8 @@ El coordinador es **reactivo**: no deja tareas en segundo plano esperando respue
 
 Invocar `/dev` es el pedido explícito del usuario de delegar, aunque la configuración general desaconseje delegar por defecto. No es para un cambio chico que cabe en una sola sesión: usala cuando el desarrollo tenga varias áreas que convenga llevar en paralelo con un contrato compartido entre ellas.
 
+**Requisito:** esta skill corre en **Claude Desktop**, que es donde una conversación puede abrir otras mediante el MCP de sesiones (`start_session`, `SendMessage`, `list_sessions`…). En el CLI sin ese MCP cargado, no aplica.
+
 **Git: recomendado, no obligatorio.** El jefe no siempre usa git, así que la skill no depende 100% de él:
 - **Con git (recomendado):** cada pista trabaja en su **worktree** y rama; la integración es por *merge*.
 - **Sin git:** cada pista trabaja en **su propia copia-carpeta** del proyecto (una carpeta aparte); el coordinador unifica los cambios a mano en una copia principal.
@@ -61,7 +63,7 @@ Escribir el plan en la **carpeta de coordinación** (vault, o la carpeta dedicad
 Mostrar el plan con `ExitPlanMode` si se está en modo plan.
 
 **Después del plan, preguntar al usuario** con `AskUserQuestion` (salvo que ya lo haya dicho al invocar, p. ej. «/dev ejecuta Sonnet, 3 pistas»):
-- **qué modelo corre cada pista** — el coordinador recomienda uno (por defecto Sonnet; no más capaz ni caro que lo que haga falta, y no por encima del coordinador); el usuario lo elige y el **coordinador lo fija con `model` en el `start_session`** (o con `set_session_model` después). Debe ser igual o más barato que el del coordinador; **si se omite, la pista hereda el modelo del coordinador —caro—, así que pasalo siempre**;
+- **qué modelo corre cada pista** — el coordinador recomienda uno (por defecto Sonnet: suele alcanzar para ejecutar sin gastar de más) y el usuario elige con libertad; el **coordinador lo fija con `model` en el `start_session`** (o con `set_session_model` después). No hay tope rígido respecto al coordinador, pero sí el criterio de no usar un modelo más capaz ni más caro de lo que la pista necesita. **Si se omite, la pista hereda el modelo del coordinador, así que pasalo siempre**;
 - **cuántas pistas** — el coordinador recomienda un número y qué área lleva cada una (según lo independientes que sean y la contención de recursos); el usuario aprueba cuántas y cuáles. Típico 2–4; cada pista de más es más costo de coordinación.
 
 El modelo del **coordinador** no se pregunta: es el de esta sesión y no cambia.
@@ -83,13 +85,13 @@ La hace **el coordinador**, antes de abrir las pistas, porque todas dependen de 
 
 Las pistas son **conversaciones anidadas que abre el propio coordinador con `start_session`** (Claude Desktop lo permite), no subagentes. El usuario no las abre ni escribe en ellas. El flujo:
 
-1. **Cargar las herramientas diferidas** en una sola `ToolSearch`: `select:mcp__ccd_session__start_session,SendMessage,mcp__ccd_session_mgmt__set_session_model,mcp__ccd_session_mgmt__list_sessions,mcp__ccd_session_mgmt__stop_session,mcp__ccd_session_mgmt__archive_session`. `ListAgents` ya está disponible. (`TaskStop` es para subagentes propios; a las pistas no se les aplica.)
+1. **Cargar las herramientas diferidas** en una sola `ToolSearch`: `select:mcp__ccd_session__start_session,SendMessage,mcp__ccd_session_mgmt__set_session_model,mcp__ccd_session_mgmt__list_sessions,mcp__ccd_session_mgmt__get_session,mcp__ccd_session_mgmt__list_events,mcp__ccd_session_mgmt__stop_session,mcp__ccd_session_mgmt__archive_session,mcp__ccd_session_mgmt__unarchive_session`. `ListAgents` ya está disponible. (`TaskStop` es para subagentes propios; a las pistas no se les aplica.) Verificá los nombres exactos contra el schema real del MCP de sesiones de tu Claude Desktop antes de confiar en esta lista.
 2. **Abrir una pista por área con `start_session`** —las independientes en el mismo turno, para que arranquen en paralelo—. Una línea en negrita por pista antes de las llamadas. Parámetros:
    - `initiation: "user_asked"` (abrir pistas es parte de lo que el usuario pidió al invocar `/dev`);
    - `title` descriptivo («Pista WEB: nube por sucursal») y `name` corto (`pista-web`);
    - `context: "fresh"` (no hereda esta conversación) + `background` con el contexto general (**obligatorio con `fresh`, mínimo 80 caracteres**);
-   - **`model` (y `effort`) explícitos**, el elegido para la pista. **Pasalo siempre:** si lo omitís, la pista hereda el modelo del coordinador —caro—. Debe ser igual o más barato que el del coordinador;
-   - `use_worktree: false` (cada pista crea su propio worktree desde su brief, para controlar el nombre de rama y la propiedad de archivos);
+   - **`model` explícito**, el elegido para la pista. **Pasalo siempre:** si lo omitís, la pista hereda el modelo del coordinador. Pasá `effort` solo si el usuario lo pidió; si no, omitilo y la pista usa el del modelo;
+   - `use_worktree: false` (cada pista crea su propio worktree desde su brief, para controlar el nombre de rama y la propiedad de archivos); la pista no debe editar nada hasta crear y entrar en esa copia —si nace en la copia del coordinador, un edit temprano iría al lugar equivocado—;
    - `prompt`: **el brief** (plantilla en las referencias). El brief se entrega acá, en el `start_session`; no hay un `SendMessage` aparte para arrancar.
    Guardá el `session_id` que devuelve (`local_…`): con él —o con el título— la dirigís después.
 3. **Verlas y dirigirlas:** `SendMessage` (a `session_id` o título) para hablarles; `ListAgents` y `list_sessions {"linked": true}` para el estado (ociosa/ocupada, carpeta, rama); `get_session` para modelo/esfuerzo; `list_events` para qué hizo. Anotar en la nota de la pista su `session_id` y la ruta absoluta de su copia de trabajo.
@@ -104,7 +106,7 @@ El **brief** (plantilla en las referencias) dice:
 
 ## 5. Coordinar mientras trabajan
 
-- **Reactivo, no sondear.** El turno del coordinador termina después de repartir. Los avisos llegan solos: el `SendMessage` de una pista aparece como `<cross-session-message>`, y al cerrar un turno la app inyecta los primeros ~400 caracteres de su informe (y continúa el turno del coordinador con un `<side-sessions-event>` si está ocioso). El coordinador los analiza y responde. El informe vivo de cada pista es la **bitácora de su nota de tareas** en la vault. Si el usuario pregunta «¿cómo va?», leer esas bitácoras y mirar el estado con `ListAgents` / `list_sessions` (ociosa/ocupada), los commits (`git log <base>..<rama>`) y lo sin commitear (`git status`) —o el estado de las copias, sin git—.
+- **Reactivo, no sondear.** El turno del coordinador termina después de repartir. Los avisos llegan solos: el `SendMessage` de una pista aparece como `<cross-session-message>`, y al cerrar un turno la app inyecta los primeros ~400 caracteres de su informe (y continúa el turno del coordinador con un `<side-sessions-event>` si está ocioso). El coordinador los analiza y responde. El informe vivo de cada pista es la **bitácora de su nota de tareas** en la vault. Si el usuario pregunta «¿cómo va?», leer esas bitácoras y mirar el estado con `ListAgents` / `list_sessions` (ociosa/ocupada), los commits (`git log <base>..<rama>`) y lo sin commitear (`git status`) —o el estado de las copias, sin git—. **No uses `notify_when_idle` en los `SendMessage` a las pistas:** no funciona con las sesiones de Claude Desktop; dependé del aviso de la propia pista o del usuario para saber cuándo terminó.
 - **El coordinador es el intermediario:** las pistas no se hablan entre sí. Los pedidos entre pistas y los cambios de contrato se **escriben en la vault** —«Cambios pedidos» y «Avisos» del contrato—; el coordinador los registra ahí (y, si hace falta, deja una entrada «Coordinador: …» en la bitácora de la pista) y recién entonces avisa a las afectadas con `SendMessage` (al nombre/id que lista `ListAgents`), apuntando a lo que deben leer.
 - **Dependencias:** retener una pista hasta que esté lo que necesita, o dejarla avanzar con lo que no depende.
 - **Decisiones nuevas del usuario a mitad de camino:** anotarlas enseguida en el contrato, la nota de tareas que corresponda y la memoria, y avisar a las pistas afectadas. Si contradice algo ya hecho, decir cuál commit se revierte.
@@ -113,6 +115,7 @@ El **brief** (plantilla en las referencias) dice:
   - ver su estado con `ListAgents` / `list_sessions` (ociosa, detenida, archivada o desaparecida) y el avance real en su copia (`git log`/`git status`, o los archivos) y la bitácora;
   - preguntar al usuario si la detuvo él;
   - al retomar: si sigue viva (ociosa o detenida), un `SendMessage` a su `session_id` la continúa con todo su contexto; si está archivada, `unarchive_session` (la app pide aprobación); si se perdió de verdad, un `start_session` nuevo **con `fresh`** (no `fork`, que heredaría la conversación del coordinador, no la de la pista) apuntándola a su worktree y su bitácora. En todos los casos, pedirle primero que **anote lo ya hecho**.
+- **Si relevan al coordinador** (esta sesión se saturó de contexto y el usuario abrió otra con `/dev` para retomar): el coordinador nuevo **solo lee** (vault, git, `list_events` del viejo) hasta que el usuario confirme que el viejo cerró; recién entonces avisa **una sola vez** a cada pista. Las pistas aceptan el cambio solo si lo confirma el usuario o el coordinador anterior —si no, deben negarse—. No reutilizar a ciegas: si el usuario pide pistas nuevas, abrir conversaciones nuevas que retomen la rama/copia de cada área. Nunca verificar ni probar en la copia de una pista que sigue trabajando (choques de demonio compartido, p. ej. Gradle, dan fallos falsos): usar una copia aparte o esperar.
 - **Para detener una pista:** `stop_session(session_id)` corta su turno en curso (como apretar Stop); la conversación queda abierta y ociosa, y si tenía un mensaje en cola, ese corre después. Para cerrarla del todo y limpiar su worktree, `archive_session` (reversible con `unarchive_session`; la app pide aprobación — **solo con acuerdo explícito del usuario**). `TaskStop` no aplica (es para subagentes propios). Después **cerrar lo que dejó corriendo** (servidores, bases de prueba): identificar cada proceso por su línea de comando antes de cerrarlo y nunca cerrar procesos que no sean de esa pista.
 
 ## 6. Revisar cada entrega: no confiar en el reporte
@@ -146,6 +149,7 @@ Al terminar la revisión, borrar las copias de verificación y los procesos que 
 ## 8. Cerrar
 
 - **La nota principal** con la tabla de estado al día, y las notas viejas con su aviso.
+- **Una nota «Estado actual»** en la vault, reescrita al cerrar cada ronda (producción, rama/copia base, qué falta, decisiones abiertas, notas viejas): es lo que permite retomar —o relevar al coordinador— sin releer todas las bitácoras.
 - **Memoria:** el rumbo, dónde están el plan y la rama/copia base, y las trampas aprendidas que no estén en el código.
 - **Lo que sigue** (despliegue, decisiones pendientes, fases siguientes) se le propone al usuario. **Nada se sube ni se despliega sin su orden explícita.**
 - **Credenciales y secretos:** nunca en el chat, la vault ni git. Van en una carpeta local fuera de los repos (por ejemplo `.secrets/` con una plantilla `.example`) y a las pistas solo se les pasa la ruta y las reglas de uso.
