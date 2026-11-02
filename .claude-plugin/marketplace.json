@@ -7,15 +7,6 @@
   },
   "plugins": [
     {
-      "name": "delegacion-por-modelo",
-      "description": "Reparte el trabajo entre modelos con subagentes: Sonnet ejecuta, Opus planifica y revisa. Incluye un comando para prender y apagar el ruteo por sesion.",
-      "author": {
-        "name": "MarquezG"
-      },
-      "source": "./plugins/delegacion-por-modelo",
-      "category": "productivity"
-    },
-    {
       "name": "dev",
       "description": "Coordina un desarrollo grande con varias conversaciones de Claude en paralelo: una sesión Opus/Fable planifica, hace la base común y reparte en «pistas» (sesiones anidadas que ejecutan con Sonnet), las dirige por mensajes, revisa y verifica cada entrega, integra y prueba de punta a punta. Para Claude Desktop (abre las pistas con start_session).",
       "author": {
