@@ -7,10 +7,11 @@ Son esqueletos. Hay que adaptar los nombres al proyecto y escribir para alguien 
 1. Nota principal del plan
 2. Contrato
 3. Nota de tareas de una pista
-4. Brief para lanzar una pista (por `SendMessage`)
+4. Brief para lanzar una pista (el `prompt` del `start_session`)
 5. Mensajes del coordinador a una pista
 6. Guion de prueba de punta a punta
 7. Formato de entrada de la bitácora (el informe vivo, dentro de la nota de tareas)
+8. Nota «Estado actual» (para retomar o relevar)
 
 ---
 
@@ -111,7 +112,7 @@ El brief es el **`prompt` del `start_session`** con que el coordinador abre la p
 ```text
 Eres la instancia de la pista <X> del plan «<tema>». Respondé siempre en <idioma>.
 1. Leé primero (rutas absolutas): <plan> (Decisiones), <contrato>, y tu nota de tareas <ruta>.
-2. Creá tu copia de trabajo: con git, git worktree add ../<proyecto>-<x> -b <rama-x> <base> (base @ <commit>); sin git, copiá la carpeta base <ruta base> a ../<proyecto>-<x>. Trabajá solo ahí. Después: <instalar y compilar>.
+2. No edites nada hasta crear y entrar en tu copia. Creála: con git, git worktree add ../<proyecto>-<x> -b <rama-x> <base> (base @ <commit>); sin git, copiá la carpeta base <ruta base> a ../<proyecto>-<x>. Trabajá solo ahí. Después: <instalar y compilar>.
 3. Hacé las tareas en el orden de la nota: <ids>. Commiteá por tarea (sin git: fijá un hito por tarea).
 Al cerrar cada tarea: agregá una entrada en la «Bitácora de la pista» de tu nota de tareas (qué, commit, qué probaste y qué no con números, decisiones propias a confirmar, bloqueos, qué desbloquea) y avisame a mí (el coordinador, sesión «<nombre del coordinador>») con un SendMessage corto que apunte a esa entrada. El mensaje es solo el aviso; el informe vive en la bitácora. No encadenes todo sin avisar: la bitácora es mi única ventana a tu avance.
 Contrato: <quién es dueño; cómo se piden cambios>.
@@ -164,4 +165,29 @@ No es un archivo aparte: es la sección **«Bitácora de la pista»** dentro de 
   - **Decisiones propias (a confirmar):** <las que el usuario debe confirmar>
   - **Bloqueos / pedidos al contrato:** <qué te traba, qué pediste>
   - **Desbloquea a:** <pistas>
+```
+
+## 8. Nota «Estado actual» (para retomar o relevar)
+
+Una sola nota en la vault, **reescrita al cerrar cada ronda** (no un historial). Es lo que permite que una sesión nueva —o un coordinador de relevo— retome sin leer todas las bitácoras.
+
+```markdown
+# Estado actual — <tema>
+
+> Reescrita el <fecha>. Reemplaza lo anterior; para el detalle histórico, las bitácoras.
+
+## Producción / base
+- Rama o copia base: `<nombre>` @ `<commit>`. Qué hay desplegado: <…>.
+
+## Pistas
+| Pista | Sesión (`session_id`) | Copia / rama | Estado | Última entrega |
+
+## Qué falta
+<lo pendiente por pista, en una línea cada uno>
+
+## Decisiones abiertas
+<las que esperan al usuario>
+
+## Notas viejas
+<cuáles quedaron reemplazadas y por cuál>
 ```
