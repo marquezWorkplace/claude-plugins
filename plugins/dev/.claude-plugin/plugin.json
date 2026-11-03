@@ -1,8 +1,8 @@
 {
   "name": "dev",
-  "description": "Coordina un desarrollo grande con varias conversaciones de Claude en paralelo: una sesión Opus/Fable planifica, hace la base común y reparte en «pistas» (sesiones anidadas que ejecutan con Sonnet), las dirige por mensajes, revisa y verifica cada entrega, integra y prueba de punta a punta. Para Claude Desktop (abre las pistas con start_session).",
+  "description": "Coordina un desarrollo grande con varias conversaciones de Claude en paralelo: una sesión Opus/Fable planifica, hace la base común y reparte en «pistas» (sesiones anidadas que ejecutan con Sonnet), las dirige por mensajes, revisa y verifica cada entrega, integra y prueba de punta a punta. Funciona en Claude Desktop (start_session) y en Claude Code CLI (claude --bg).",
   "author": {
     "name": "MarquezG"
   },
-  "version": "1.1.0"
+  "version": "1.2.0"
 }

@@ -8,17 +8,17 @@ La idea: el modelo caro piensa y revisa, el barato ejecuta, y nadie le pisa los 
 
 No es para un cambio chico que cabe en una sola sesión. Usala cuando el desarrollo tenga **varias áreas** que convenga llevar en paralelo con un contrato compartido entre ellas.
 
-> ⚠️ **Dónde funciona: solo Claude Desktop.** Se puede instalar e invocar en Claude Code CLI, pero su flujo central —abrir y dirigir las «pistas» con `start_session`— depende del **MCP de sesiones del Desktop** (`mcp__ccd_session__*`), que el CLI no tiene. En el CLI la skill carga pero se traba al intentar abrir la primera pista. El CLI tiene otro modelo de paralelismo (subagentes `Agent`, `Workflow`), pero es un patrón distinto —agentes efímeros, no conversaciones peer dirigibles por mensajes—, no un reemplazo de esta skill.
+> ✅ **Dónde funciona: Claude Desktop y Claude Code CLI.** En **Desktop** abre y dirige las «pistas» con el MCP de sesiones (`start_session`). En el **CLI** las abre con las **sesiones en segundo plano nativas** del propio `claude` (`claude --bg`, más `claude agents/attach/logs/stop`): son sesiones *peer* dirigibles por mensaje, igual que en Desktop, **no** subagentes `Agent` ni `Workflow`. La skill **detecta el backend al arrancar** (§0 del SKILL). En el CLI hay un preflight simple: el **toolchain del proyecto** (p. ej. `pnpm`) debe estar instalado y en el PATH, y en Windows el PATH no debe estar inflado de duplicados (rompe los scripts de npm/pnpm). Validado end-to-end el 2026-11-03.
 
 ## Prerrequisitos
 
-- **Claude Desktop con el MCP de sesiones** (`mcp__ccd_session__*` / `mcp__ccd_session_mgmt__*`): es lo que abre y dirige las pistas con `start_session`. Sin ese MCP, el reparto en pistas no funciona (en el CLI pelado no aplica).
+- **Un backend para abrir/dirigir pistas:** Claude Desktop con el MCP de sesiones (`mcp__ccd_session__*`, abre con `start_session`), **o** Claude Code CLI con las sesiones en segundo plano (`claude --bg` + `claude agents/attach/logs/stop`). En ambos, `ListAgents`/`SendMessage` son el bus. En el CLI, además, el **toolchain del proyecto** debe estar instalado y en el PATH antes de lanzar pistas.
 - Una **vault de Obsidian** (o una carpeta de coordinación al lado del repo): es el cerebro/memoria del proyecto —plan, contrato, notas de tareas con su bitácora, guiones—. El coordinador la usa solo; vos no tenés que tocarla.
 - **git con worktrees** recomendado (hay un modo sin-git de primera clase para quien no lo use).
 
 ## Cómo usarla (paso a paso, desde tu lado)
 
-1. **Arrancá en Claude Desktop con un modelo capaz como coordinador** (Opus o Fable). Ese modelo piensa, planifica y revisa, así que conviene que sea el bueno. El modelo del coordinador es el de la sesión donde escribís `/dev` y **no se cambia a mitad de camino**.
+1. **Arrancá con un modelo capaz como coordinador** (Opus o Fable), en Claude Desktop o en el CLI. Ese modelo piensa, planifica y revisa, así que conviene que sea el bueno. El modelo del coordinador es el de la sesión donde escribís `/dev` y **no se cambia a mitad de camino**.
 2. **Escribí `/dev`** y contá qué querés construir (o pedí «planificá y repartí este cambio entre varias conversaciones de Claude»).
 3. El coordinador **lee el proyecto y te hace solo las preguntas que cambian el plan** (dónde vive el estado, quién es dueño de qué dato, qué se elimina, cómo se da de alta algo). Respondé con tu criterio; si tenés una idea propia, decila y la toma tal cual.
 4. Te muestra **el plan**: fases, reparto de áreas, qué archivo es de quién, cómo se verifica.

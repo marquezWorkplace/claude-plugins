@@ -7,7 +7,7 @@ description: "Coordina un desarrollo grande con varias sesiones de Claude en par
 
 Esta sesión es el **coordinador**: el gestor principal del desarrollo. No escribe el código de las pistas: entrevista, planifica, decide con el usuario, reparte, revisa, verifica, integra y documenta. Es el único que ve el cuadro completo.
 
-Las **pistas no son subagentes `Agent`:** son **conversaciones de Claude anidadas que el propio coordinador abre** (Claude Desktop permite que una conversación abra otras), una por área del repo. **El usuario no las crea ni escribe en ellas.** Aparecen como *peer sessions* en `ListAgents` y el coordinador les habla con `SendMessage`. Funciona porque el modelo caro piensa y revisa, el barato ejecuta, y nadie le pisa los archivos a otro.
+Las **pistas no son subagentes `Agent`:** son **conversaciones de Claude anidadas que el propio coordinador abre** (en Desktop con `start_session`; en el CLI con `claude --bg` — ver §0 y «Modo CLI»), una por área del repo. **El usuario no las crea ni escribe en ellas.** Aparecen como *peer sessions* en `ListAgents` y el coordinador les habla con `SendMessage`. Funciona porque el modelo caro piensa y revisa, el barato ejecuta, y nadie le pisa los archivos a otro.
 
 El coordinador es **reactivo**: no deja tareas en segundo plano esperando respuesta. Reparte, y su turno termina. Cuando una pista le manda un mensaje al cerrar su labor, el coordinador lo analiza y contesta. **No sondea.** Los `SendMessage` entre sesiones son el **empujón en vivo** —«leé esto», «arrancá», «arreglá aquello»—; el registro durable de todo (informes, pedidos, decisiones) vive en la vault, no en los mensajes.
 
@@ -15,7 +15,11 @@ El coordinador es **reactivo**: no deja tareas en segundo plano esperando respue
 
 Invocar `/dev` es el pedido explícito del usuario de delegar, aunque la configuración general desaconseje delegar por defecto. No es para un cambio chico que cabe en una sola sesión: usala cuando el desarrollo tenga varias áreas que convenga llevar en paralelo con un contrato compartido entre ellas.
 
-**Requisito:** esta skill corre en **Claude Desktop**, que es donde una conversación puede abrir otras mediante el MCP de sesiones (`start_session`, `SendMessage`, `list_sessions`…). En el CLI sin ese MCP cargado, no aplica.
+**Dónde corre: Desktop o CLI.** La skill necesita poder **abrir y dirigir otras sesiones de Claude**, y hay dos backends; el **§0** detecta cuál:
+- **Claude Desktop** — con el MCP de sesiones (`start_session`, `list_sessions`, `set_session_model`…).
+- **Claude Code CLI** — con las **sesiones en segundo plano nativas** del propio `claude` (`claude --bg`, más `claude agents/attach/logs/stop/rm`).
+
+En los dos casos las pistas son **sesiones peer dirigibles por mensaje** (no subagentes `Agent`, sin fan-out), y `ListAgents`/`SendMessage` son el bus común. Las mecánicas que cambian entre backends —abrir, ver, frenar, retomar— van en §4/§5 para Desktop y en la sección **«Modo CLI»** al final, resumidas en una tabla de equivalencias.
 
 **Git: recomendado, no obligatorio.** El jefe no siempre usa git, así que la skill no depende 100% de él:
 - **Con git (recomendado):** cada pista trabaja en su **worktree** y rama; la integración es por *merge*.
@@ -25,6 +29,19 @@ Si el proyecto no está en git, ofrecer `git init`; si el usuario no quiere, usa
 **La vault es el cerebro y la memoria del proyecto.** Toda la coordinación durable vive ahí: el plan, el contrato, las notas de tareas —cada una con su **bitácora**, que es el informe vivo de esa pista— y los guiones de prueba. Es una carpeta **compartida, por ruta absoluta, fuera de las copias de trabajo**, que todas las sesiones alcanzan igual con o sin git: la **vault de Obsidian** si existe, o si no una carpeta dedicada al lado del repo (`../<proyecto>-coordinacion/`). **Nunca dentro de los worktrees/copias ni en `docs/` del repo:** un archivo ahí solo lo ve la pista que lo tenga commiteado en su rama, y el coordinador en su copia no lo vería. A cada pista se le pasa la **ruta absoluta** de las notas que necesita. **No hay carpeta de informes aparte:** cada pista reporta en la bitácora de su propia nota de tareas, y los pedidos entre pistas van a «Cambios pedidos»/«Avisos» del contrato.
 
 Plantillas de notas, mensajes y guiones: `references/plantillas.md`. Leerlo antes de escribir cada pieza.
+
+## 0. Antes de nada: ¿con qué backend se orquesta?
+
+**Primer paso, antes de entrevistar o planificar.** Detectá cómo vas a abrir y dirigir pistas:
+
+- **Desktop** — ¿está el MCP de sesiones? `ToolSearch` (`select:mcp__ccd_session__start_session`). Si resuelve → **modo Desktop**: §4/§5 tal cual (`start_session`).
+- **CLI** — ¿está el `claude` con sesiones en segundo plano? (`claude --help` muestra `--bg` y los subcomandos `agents/attach/logs/stop/rm`.) Si sí → **modo CLI**: §4/§5 con las variantes de la sección «Modo CLI» al final. `ListAgents`/`SendMessage` son el bus en ambos.
+- **Ninguno** → avisá al usuario: sin backend no se abren pistas. Ofrecé seguir en una sola sesión, o abrir el entorno que falte.
+
+**Preflight del modo CLI, antes de lanzar pistas:**
+1. **Toolchain del proyecto instalado y en el PATH** (p. ej. `pnpm`, `cargo`): la pista hereda el entorno al nacer; si falta, se traba en el `install`.
+2. **PATH de Windows no inflado:** miles de caracteres con duplicados rompen los scripts de npm/pnpm al correr por `cmd.exe` (`'node' no se reconoce`). Avisá al usuario y deduplicá si hace falta.
+3. **Confianza de worktrees:** es interactiva y **no se pre-siembra por config** — pero no hace falta tocarla si la pista **nace en una carpeta ya confiada y crea su worktree ella misma** (ver «Modo CLI»).
 
 ## 1. Entender el pedido
 
@@ -83,7 +100,7 @@ La hace **el coordinador**, antes de abrir las pistas, porque todas dependen de 
 
 ## 4. Repartir y lanzar las pistas
 
-Las pistas son **conversaciones anidadas que abre el propio coordinador con `start_session`** (Claude Desktop lo permite), no subagentes. El usuario no las abre ni escribe en ellas. El flujo:
+Las pistas son **conversaciones anidadas que abre el propio coordinador con `start_session`** (Claude Desktop lo permite), no subagentes. El usuario no las abre ni escribe en ellas. (En **modo CLI**, las pistas se abren con `claude --bg` en vez de `start_session`; ver la sección **«Modo CLI»** al final para el equivalente de §4 y §5.) El flujo Desktop:
 
 1. **Cargar las herramientas diferidas** en una sola `ToolSearch`: `select:mcp__ccd_session__start_session,SendMessage,mcp__ccd_session_mgmt__set_session_model,mcp__ccd_session_mgmt__list_sessions,mcp__ccd_session_mgmt__get_session,mcp__ccd_session_mgmt__list_events,mcp__ccd_session_mgmt__stop_session,mcp__ccd_session_mgmt__archive_session,mcp__ccd_session_mgmt__unarchive_session`. `ListAgents` ya está disponible. (`TaskStop` es para subagentes propios; a las pistas no se les aplica.) Verificá los nombres exactos contra el schema real del MCP de sesiones de tu Claude Desktop antes de confiar en esta lista.
 2. **Abrir una pista por área con `start_session`** —las independientes en el mismo turno, para que arranquen en paralelo—. Una línea en negrita por pista antes de las llamadas. Parámetros:
@@ -162,3 +179,44 @@ Al terminar la revisión, borrar las copias de verificación y los procesos que 
 - qué falta.
 
 Cuando pregunte «¿cómo va?», mirar el estado real (las bitácoras en la vault + `ListAgents` + commits/archivos); no repetir lo que dijo el último mensaje de la pista. Si una pista está lenta, explicar por qué (pruebas pesadas, más tareas, el modelo elegido) y qué se puede hacer.
+
+## Modo CLI (`claude --bg`) — equivalente de §4 y §5
+
+En el CLI las pistas son **sesiones en segundo plano** del propio `claude`: sesiones peer completas (no subagentes `Agent`, sin fan-out), visibles con `claude attach`, en el mismo bus que `ListAgents`/`SendMessage`. Todo lo demás (contrato, dueños, vault/bitácora, verificación §6, integración §7, cierre §8) es idéntico a Desktop. Lo que cambia:
+
+**Lanzar (reemplaza §4.2):**
+1. **Herramientas:** `ListAgents` ya está; cargá `SendMessage` con `ToolSearch` (`select:SendMessage`). Las sesiones se manejan por shell (`claude …`), no por un MCP.
+2. **Lanzá cada pista desde una carpeta ya confiada** (p. ej. el home) **con `--add-dir "<carpeta del repo>"`**, una por área, en el mismo turno las independientes:
+   `claude --bg --name pista-<area> --model <modelo> --add-dir "<repo>" "esperá el brief"`
+   Devuelve un **id corto**; anotalo. El prompt posicional **no arranca la pista** (queda ociosa), así que es solo un placeholder.
+3. **Entregá el brief por `SendMessage`** (no por el prompt posicional): un mensaje a `pista-<area>` con el brief completo. En el brief, **la pista crea su propio worktree** (`git worktree add ../<proyecto>-<area> -b <rama> <base>`) y entra ahí; al ser **dueña** del worktree, edita y commitea sin trabarse. Si el coordinador le pasa un worktree ya hecho, la pista se **niega** a commitear pidiendo confirmación del usuario (guardarraíl anti permission-laundering) — por eso la pista lo crea.
+4. Dirigí las pistas **por nombre** (`pista-<area>`). El id corto del CLI (para `attach/logs/stop/rm`) es **distinto** del ref de `ListAgents`; para dirigir, el nombre alcanza.
+
+**Ver y dirigir (reemplaza §4.3 y las mecánicas de §5):**
+- **Estado:** `claude agents --json` o `ListAgents` (ociosa/ocupada).
+- **Ver en vivo:** una terminal con `claude attach <nombre|id>`; un panel por pista (p. ej. Windows Terminal `wt … split-pane`) da el tablero tipo Desktop. Espiar sin entrar: `claude logs <id>`.
+- **Dirigir:** `SendMessage` al nombre. El **idle-wake funciona**: el aviso de una pista despierta al coordinador 100 % ocioso (modelo reactivo, igual que en Desktop; `notify_when_idle` no hace falta).
+- **Frenar:** `claude stop <id-corto>` (por **id**, no por nombre; conserva la conversación). Una pista detenida **sale del bus** y no recibe `SendMessage` hasta retomarla.
+- **Retomar:** `claude --bg --resume <UUID-completo>` **desde carpeta confiada** (`--resume` re-chequea confianza contra el cwd). Con el **id corto** arranca una **copia**; con el **UUID completo** (de `claude agents --json`) despierta la **misma** sesión y restaura `--name/--add-dir/--model`. El contexto sobrevive al stop/resume.
+- **Cerrar y limpiar su worktree:** `claude rm <id>` (solo con acuerdo explícito del usuario).
+
+**Trampas del CLI (validadas):**
+- **Confianza interactiva:** un worktree nuevo no es de confianza y `--bg` no puede mostrar el diálogo; por eso se lanza desde carpeta confiada + `--add-dir` y la pista crea su worktree (crear + `cd` **no** dispara el diálogo). Pre-confiar editando `~/.claude.json` no se honra (y el auto-mode lo bloquea como "Self-Modification").
+- **Toolchain / PATH:** ver el preflight del §0.
+- **Hooks (husky, etc.):** con dependencias instaladas **pasan**; usá `git commit --no-verify` solo si el worktree no tiene `node_modules`. pnpm usa store con hardlinks, así que N worktrees cuestan poco disco (borralos al terminar la ronda).
+- **Background service compartido:** un servicio atiende las sesiones `--bg`; **nunca lo reinicies** (puede tumbar otras sesiones, incluso de Desktop). Frená/cerrá solo por pista con `stop`/`rm`.
+
+**Tabla de equivalencias Desktop ↔ CLI**
+
+| Acción | Desktop | CLI |
+|---|---|---|
+| Abrir pista | `start_session` (`fresh`, `model`, `prompt`=brief) | `claude --bg --name --model --add-dir` desde carpeta confiada; **brief por `SendMessage`** |
+| Dirigir | `SendMessage` | `SendMessage` (igual) |
+| Estado | `list_sessions` | `claude agents --json` / `ListAgents` |
+| Ver en vivo | la ventana de la pista | `claude attach <nombre>` (`logs` para espiar) |
+| Frenar | `stop_session` | `claude stop <id-corto>` |
+| Cerrar / limpiar | `archive_session` | `claude rm <id>` |
+| Retomar | `SendMessage` al `session_id` | `claude --bg --resume <UUID-completo>` desde carpeta confiada |
+| Worktree de la pista | la crea la pista desde el brief | igual (la crea la pista; es dueña) |
+
+Validado end-to-end el 2026-11-03 (abrir, dirigir, worktree propio, `install`+`typecheck`+`test`, integración por merge, stop/resume con contexto, idle-wake).
