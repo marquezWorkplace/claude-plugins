@@ -109,6 +109,8 @@ Propuestas del coordinador (se aprueban con el plan): <…>
 
 El brief es el **`prompt` del `start_session`** con que el coordinador abre la pista (no un `SendMessage` aparte); el contexto general va en `background` (mínimo 80 caracteres). Las rutas van **absolutas**: la pista no vio esta conversación.
 
+> **En modo CLI (`claude --bg`):** el `prompt` posicional **no arranca** la pista (queda ociosa), así que el brief se entrega **por `SendMessage`** después de lanzarla, y la pista **crea su propio worktree** desde el brief (al ser dueña, commitea sin trabarse). El mismo texto de abajo sirve de brief; solo cambia por dónde llega. Ver «Modo CLI» en el SKILL.
+
 ```text
 Eres la instancia de la pista <X> del plan «<tema>». Respondé siempre en <idioma>.
 1. Leé primero (rutas absolutas): <plan> (Decisiones), <contrato>, y tu nota de tareas <ruta>.
