@@ -1,0 +1,8 @@
+{
+  "name": "clean-smart-tv",
+  "description": "Limpia un Smart TV Android (Android TV, Google TV) por ADB: inventario del software, detección de bloatware/adware/telemetría OEM, instalación del launcher Projectivy con la configuración probada en un Daewoo AI Smart TV (Skyworth ODM, Android 14), y lista de candidatos de limpieza esperando autorización del usuario antes de ejecutar. Para Claude Code en Windows (usa adb.exe del Android Platform Tools).",
+  "author": {
+    "name": "MarquezG"
+  },
+  "version": "1.0.0"
+}
